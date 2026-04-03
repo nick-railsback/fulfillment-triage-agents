@@ -2,11 +2,14 @@
 
 import os
 import re
+from datetime import datetime, timezone
 
 from agentfield import Agent, AIConfig
 
 from models.incoming import IncomingMessage
 from models.ticket import ParsedTicket, TicketWithContext
+from models.trace import TriageTrace
+from validators.intake_validator import validate_intake
 
 app = Agent(
     node_id="intake",
@@ -38,6 +41,10 @@ async def process_message(
     """Parse an incoming support message and route to the scorer agent."""
     metadata = metadata or {}
 
+    # Initialize trace
+    trace = TriageTrace(raw_input=body)
+    trace.intake_start = datetime.now(timezone.utc).isoformat()
+
     msg = IncomingMessage(
         message_id=message_id,
         source_channel=source_channel,
@@ -62,15 +69,30 @@ Message:
         schema=ParsedTicket,
     )
 
+    # Capture LLM reasoning in trace
+    trace.intake_reasoning = (
+        f"Classified as '{parsed.issue_category}' with sentiment '{parsed.customer_sentiment}'. "
+        f"Summary: {parsed.summary}"
+    )
+    trace.intake_confidence = parsed.extraction_confidence
+
     # Post-LLM validation: verify order IDs match expected pattern
     parsed.order_ids = [
         oid for oid in parsed.order_ids if ORDER_ID_PATTERN.fullmatch(oid)
     ]
 
+    # Snapshot the parsed ticket in the trace
+    trace.parsed_ticket_snapshot = parsed.model_dump()
+
     # If extraction confidence is very low, flag for manual review
     if parsed.extraction_confidence < 0.5:
         # Still route through pipeline — the router will handle forced escalation
         pass
+
+    # Run post-intake semantic validation
+    await validate_intake(parsed, body, trace, app)
+
+    trace.intake_end = datetime.now(timezone.utc).isoformat()
 
     # Build context from metadata
     context = TicketWithContext(
@@ -85,7 +107,7 @@ Message:
         has_open_tickets=metadata.get("has_open_tickets", 0),
     )
 
-    # Call scorer agent, passing message_id for end-to-end tracing
+    # Call scorer agent, passing message_id and trace for end-to-end tracing
     result = await app.call(
         "scorer.score_ticket",
         message_id=message_id,
@@ -98,6 +120,7 @@ Message:
         destination_region=context.destination_region,
         is_subscription_order=context.is_subscription_order,
         has_open_tickets=context.has_open_tickets,
+        trace=trace.model_dump(),
     )
 
     return result

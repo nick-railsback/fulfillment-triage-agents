@@ -1,0 +1,15 @@
+{
+  "message_id": "msg-adv-003",
+  "source_channel": "chat",
+  "sender_id": "cust-99410",
+  "sender_type": "customer",
+  "body": "this is unacceptable, fix it now",
+  "metadata": {},
+  "expected": {
+    "category": "other|general_inquiry",
+    "risk_tier": "medium|high",
+    "routing": "escalate",
+    "notes": "Vague one-liner with no order ID, no product, no specifics. Tests how each agent handles minimal information. Low confidence should propagate and trigger forced escalation.",
+    "expected_warnings": ["low confidence", "missing entities"]
+  }
+}

@@ -2,6 +2,7 @@
 
 import os
 import time
+from datetime import datetime, timezone
 
 from agentfield import Agent, AIConfig
 
@@ -12,6 +13,7 @@ from models.resolution import (
     EscalationRequest,
     TriageResult,
 )
+from models.trace import TriageTrace
 from config.routing_rules import (
     TIER_ROUTING,
     SLA_HOURS,
@@ -19,6 +21,7 @@ from config.routing_rules import (
     evaluate_overrides,
     apply_overrides,
 )
+from validators.router_validator import validate_router
 
 app = Agent(
     node_id="router",
@@ -34,12 +37,20 @@ Keep it under 3 sentences. Do not make promises you can't keep."""
 
 
 @app.reasoner()
-async def route_ticket(scored_ticket: dict, message_id: str = "") -> dict:
+async def route_ticket(
+    scored_ticket: dict,
+    message_id: str = "",
+    trace: dict | None = None,
+) -> dict:
     """Route a scored ticket to the appropriate resolution path."""
     start_time = time.time()
 
     scored = ScoredTicket(**scored_ticket)
     ticket = scored.ticket
+
+    # Restore or create trace
+    triage_trace = TriageTrace(**trace) if trace else TriageTrace()
+    triage_trace.router_start = datetime.now(timezone.utc).isoformat()
 
     # Determine base routing from tier
     base_routing = TIER_ROUTING[scored.risk_tier]
@@ -48,20 +59,45 @@ async def route_ticket(scored_ticket: dict, message_id: str = "") -> dict:
     overrides = evaluate_overrides(scored)
     final_routing, override_names = apply_overrides(base_routing, overrides)
 
+    # Record overrides in trace
+    triage_trace.overrides_applied = [
+        {"rule": name, "reason": f"Override applied: {name}"}
+        for name in override_names
+    ]
+
+    # Capture router reasoning
+    triage_trace.router_reasoning = (
+        f"Base routing for tier '{scored.risk_tier}': {base_routing}. "
+        f"Overrides: {override_names or 'none'}. "
+        f"Final routing: {final_routing}."
+    )
+
     # Determine assigned team
     assigned_team = scored.recommended_team or CATEGORY_TEAMS.get(
         ticket.issue_category, "customer_success"
     )
 
     # Execute the appropriate resolution path
+    hitl_triggered = False
     if final_routing == "auto_resolve":
         resolution = await _auto_resolve(scored, assigned_team)
     elif final_routing == "queue_for_review":
         resolution = _queue_for_review(scored, assigned_team)
     else:
         resolution = await _escalate(scored, assigned_team, message_id)
+        hitl_triggered = True
+        triage_trace.hitl_triggered = True
+        triage_trace.hitl_outcome = "pending"  # Will be set by escalation handler
+
+    triage_trace.final_routing_decision = final_routing
+
+    # Run post-router semantic validation
+    validate_router(scored, final_routing, override_names, hitl_triggered, triage_trace)
+
+    triage_trace.router_end = datetime.now(timezone.utc).isoformat()
 
     elapsed_ms = int((time.time() - start_time) * 1000)
+    triage_trace.total_latency_ms = elapsed_ms
 
     result = TriageResult(
         message_id=message_id,
@@ -72,9 +108,25 @@ async def route_ticket(scored_ticket: dict, message_id: str = "") -> dict:
         resolution=resolution,
         pipeline_duration_ms=elapsed_ms,
         overrides=override_names,
+        trace=triage_trace,
     )
 
-    return result.model_dump()
+    # Call verifier agent for post-pipeline audit
+    try:
+        verification = await app.call(
+            "verifier.verify_triage",
+            triage_result=result.model_dump(),
+            raw_message=triage_trace.raw_input,
+        )
+        # Attach verification result — update the result dict directly
+        result_dict = result.model_dump()
+        result_dict["verification_result"] = verification
+        return result_dict
+    except Exception as exc:
+        # Verifier is non-blocking — log and return result without verification
+        import logging
+        logging.getLogger("router").warning("Verifier call failed: %s", exc)
+        return result.model_dump()
 
 
 async def _auto_resolve(scored: ScoredTicket, assigned_team: str) -> AutoResolution:

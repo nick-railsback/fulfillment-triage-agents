@@ -8,6 +8,37 @@ import sys
 import httpx
 
 
+def print_validation_results(validation_results: list[dict]) -> None:
+    """Print validation check outcomes with status indicators."""
+    if not validation_results:
+        return
+
+    print("--- Validation Results ---")
+    for v in validation_results:
+        status = v.get("status", "unknown")
+        indicator = {"pass": "\033[32mPASS\033[0m", "fail": "\033[31mFAIL\033[0m", "warning": "\033[33mWARN\033[0m"}.get(status, status)
+        print(f"  [{indicator}] {v['check_name']}: {v['details']}")
+    print()
+
+
+def print_verification_result(verification: dict | None) -> None:
+    """Print the verifier agent's assessment."""
+    if not verification:
+        print("--- Verification: not available ---")
+        return
+
+    verdict = verification.get("overall_verdict", "unknown")
+    verdict_color = {"pass": "\033[32m", "fail": "\033[31m", "needs_review": "\033[33m"}.get(verdict, "")
+    print(f"--- Verification: {verdict_color}{verdict.upper()}\033[0m (confidence: {verification.get('confidence', '?')}) ---")
+    print(f"  Category:  {verification.get('category_assessment', 'N/A')}")
+    print(f"  Scoring:   {verification.get('scoring_assessment', 'N/A')}")
+    print(f"  Routing:   {verification.get('routing_assessment', 'N/A')}")
+    if verification.get("trace_anomalies"):
+        print(f"  Anomalies: {verification['trace_anomalies']}")
+    print(f"  Rationale: {verification.get('rationale', 'N/A')}")
+    print()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run a single scenario through the fulfillment triage pipeline"
@@ -60,6 +91,22 @@ def main() -> None:
     print(json.dumps(result["resolution"], indent=2))
     print()
     print(f"Pipeline duration: {result.get('pipeline_duration_ms', '?')}ms")
+    print()
+
+    # Print trace validation results
+    trace = result.get("trace")
+    if trace:
+        print_validation_results(trace.get("validation_results", []))
+
+    # Print verification result
+    print_verification_result(result.get("verification_result"))
+
+    # Save trace to file for later investigation
+    if trace:
+        trace_file = f"trace-{result.get('message_id', 'unknown')}.json"
+        with open(trace_file, "w") as f:
+            json.dump(trace, f, indent=2)
+        print(f"Trace saved to: {trace_file}")
 
 
 if __name__ == "__main__":

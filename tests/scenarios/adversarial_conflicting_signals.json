@@ -1,0 +1,19 @@
+{
+  "message_id": "msg-adv-001",
+  "source_channel": "email",
+  "sender_id": "cust-77201",
+  "sender_type": "customer",
+  "subject": "Issue with recent shipment",
+  "body": "Hello, I hope you're having a nice day. I wanted to let you know that the entire shipment for our office (ORD-88123) arrived today and unfortunately every single item was destroyed. The boxes were completely crushed and waterlogged. This was a bulk order of $52,000 worth of industrial equipment for our manufacturing line. Production is currently halted because we were depending on these parts. No rush on your end though — just whenever you get a chance to look into it would be great. Thank you so much for your time and I appreciate your help!",
+  "metadata": {
+    "order_value_usd": 52000,
+    "customer_tier": "enterprise",
+    "customer_lifetime_orders": 47
+  },
+  "expected": {
+    "category": "damaged_item",
+    "risk_tier": "critical",
+    "routing": "escalate",
+    "notes": "Calm, polite language masking catastrophic $52K loss with production halted. Tests whether Scorer correctly identifies high risk despite low emotional intensity."
+  }
+}

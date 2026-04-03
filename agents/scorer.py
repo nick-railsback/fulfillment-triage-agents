@@ -7,8 +7,10 @@ from agentfield import Agent, AIConfig
 
 from models.ticket import ParsedTicket, TicketWithContext
 from models.scoring import LLMSeverityAssessment, ScoredTicket
+from models.trace import TriageTrace
 from config.scoring_weights import compute_deterministic_score
 from config.routing_rules import score_to_tier, CATEGORY_TEAMS
+from validators.scorer_validator import validate_scorer
 
 app = Agent(
     node_id="scorer",
@@ -38,9 +40,14 @@ async def score_ticket(
     destination_region: str | None = None,
     is_subscription_order: bool = False,
     has_open_tickets: int = 0,
+    trace: dict | None = None,
 ) -> dict:
     """Score a parsed ticket and route to the escalation router."""
     parsed = ParsedTicket(**ticket)
+
+    # Restore or create trace
+    triage_trace = TriageTrace(**trace) if trace else TriageTrace()
+    triage_trace.scorer_start = datetime.now(timezone.utc).isoformat()
 
     context = TicketWithContext(
         ticket=parsed,
@@ -82,6 +89,15 @@ Subscription Order: {is_subscription_order}"""
         schema=LLMSeverityAssessment,
     )
 
+    # Capture LLM reasoning in trace
+    triage_trace.scorer_reasoning = llm_severity.reasoning
+    llm_total = (
+        llm_severity.escalation_risk
+        + llm_severity.resolution_complexity
+        + llm_severity.time_sensitivity
+    )
+    triage_trace.scorer_confidence = max(0.0, min(1.0, 1.0 - abs(deterministic_score / 60.0 - llm_total / 40.0)))
+
     # Composite score
     risk_score = min(
         100,
@@ -106,11 +122,20 @@ Subscription Order: {is_subscription_order}"""
         scored_at=datetime.now(timezone.utc).isoformat(),
     )
 
-    # Call router agent, forwarding message_id for tracing
+    # Snapshot scored ticket in trace
+    triage_trace.scored_ticket_snapshot = scored.model_dump()
+
+    # Run post-scorer semantic validation
+    validate_scorer(scored, triage_trace)
+
+    triage_trace.scorer_end = datetime.now(timezone.utc).isoformat()
+
+    # Call router agent, forwarding message_id and trace
     result = await app.call(
         "router.route_ticket",
         message_id=message_id,
         scored_ticket=scored.model_dump(),
+        trace=triage_trace.model_dump(),
     )
 
     return result

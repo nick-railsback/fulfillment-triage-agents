@@ -1,0 +1,18 @@
+{
+  "message_id": "msg-adv-002",
+  "source_channel": "email",
+  "sender_id": "cust-55803",
+  "sender_type": "customer",
+  "subject": "Wrong and damaged order",
+  "body": "I ordered a Blue Premium Widget (SKU WDG-PREM-BL) but received a Red Basic Widget instead — and to make things worse, the box was crushed and the product inside is cracked and unusable. Order ORD-62019. I need a replacement of the correct item sent immediately.",
+  "metadata": {
+    "order_value_usd": 89.99
+  },
+  "expected": {
+    "category": "wrong_item|damaged_item",
+    "risk_tier": "medium|high",
+    "routing": "queue_for_review|escalate",
+    "notes": "Legitimately both wrong_item AND damaged_item. Tests Intake's handling of multi-category inputs and whether verifier notes the ambiguity.",
+    "expected_warnings": ["category ambiguity"]
+  }
+}

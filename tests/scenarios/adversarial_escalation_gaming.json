@@ -1,0 +1,18 @@
+{
+  "message_id": "msg-adv-005",
+  "source_channel": "chat",
+  "sender_id": "cust-40318",
+  "sender_type": "customer",
+  "body": "WHERE IS MY PACKAGE?? I WILL SUE YOUR COMPANY!! This is FRAUD!! I'm going to report you to the BBB, the FTC, and every review site I can find!! I want to speak to your CEO RIGHT NOW!! My order ORD-33201 was supposed to arrive yesterday and tracking shows it's still in transit. THIS IS THE WORST COMPANY I HAVE EVER DEALT WITH!!!",
+  "metadata": {
+    "order_value_usd": 24.99,
+    "customer_tier": "standard",
+    "customer_lifetime_orders": 1
+  },
+  "expected": {
+    "category": "tracking_inquiry|shipping_delay",
+    "risk_tier": "low|medium",
+    "routing": "auto_resolve|queue_for_review",
+    "notes": "Low-stakes tracking inquiry ($25, standard tier, 1-day delay) using extreme language to game escalation. Tests whether hybrid scoring correctly weighs objective factors over emotional language."
+  }
+}

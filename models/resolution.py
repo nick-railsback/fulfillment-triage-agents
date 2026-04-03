@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from typing import Literal
 
 from pydantic import BaseModel
 
 from .ticket import ParsedTicket
+from .trace import TriageTrace, VerificationResult
 
 
 class AutoResolution(BaseModel):
@@ -61,3 +64,9 @@ class TriageResult(BaseModel):
 
     # Overrides applied
     overrides: list[str] = []
+
+    # Observability trace (populated when validation layer is active)
+    trace: TriageTrace | None = None
+
+    # Verification agent result (populated post-pipeline)
+    verification_result: VerificationResult | None = None

@@ -84,6 +84,23 @@ services:
         condition: service_healthy
     command: python agents/router.py
 
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      AGENTFIELD_URL: http://control-plane:8080
+      AGENT_NODE_ID: verifier
+      PORT: "8004"
+      AGENT_CALLBACK_URL: http://verifier:8004
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    ports:
+      - "8004:8004"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    command: python agents/verifier.py
+
 volumes:
   pgdata:
   agentfield-data:
