@@ -1,0 +1,12 @@
+{
+  "message_id": "msg-003",
+  "source_channel": "merchant_portal",
+  "sender_id": "merchant-acme-corp",
+  "sender_type": "merchant",
+  "body": "Entire pallet from PO-2024-0892 arrived with water damage. This is a $12,000 shipment of supplements with expiration sensitivity. We cannot sell any of it. Need immediate resolution and credit. Our retail partners are waiting on this stock.",
+  "metadata": {
+    "order_value_usd": 12000,
+    "customer_tier": "enterprise",
+    "is_subscription_order": false
+  }
+}

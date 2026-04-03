@@ -1,0 +1,14 @@
+[project]
+name = "fulfillment-triage-agents"
+version = "0.1.0"
+description = "Multi-agent fulfillment support triage system built on AgentField"
+requires-python = ">=3.11"
+dependencies = [
+    "agentfield",
+    "pydantic>=2.0",
+    "httpx",
+]
+
+[project.scripts]
+run-scenario = "scripts.run_scenario:main"
+run-all-scenarios = "scripts.run_all_scenarios:main"

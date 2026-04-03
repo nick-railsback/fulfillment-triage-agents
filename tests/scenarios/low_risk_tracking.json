@@ -1,0 +1,8 @@
+{
+  "message_id": "msg-001",
+  "source_channel": "chat",
+  "sender_id": "cust-44821",
+  "sender_type": "customer",
+  "body": "Hi, I placed an order 3 days ago (ORD-78432) and haven't received a tracking number yet. Can you send me the tracking info?",
+  "metadata": {"locale": "en-US"}
+}

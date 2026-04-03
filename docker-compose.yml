@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agentfield
+      POSTGRES_PASSWORD: agentfield
+      POSTGRES_DB: agentfield
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentfield"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  control-plane:
+    image: agentfield/control-plane:latest
+    environment:
+      AGENTFIELD_STORAGE_MODE: postgres
+      AGENTFIELD_POSTGRES_URL: postgres://agentfield:agentfield@postgres:5432/agentfield?sslmode=disable
+      AGENTFIELD_HTTP_ADDR: 0.0.0.0:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - agentfield-data:/data
+
+  intake:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      AGENTFIELD_URL: http://control-plane:8080
+      AGENT_NODE_ID: intake
+      PORT: "8001"
+      AGENT_CALLBACK_URL: http://intake:8001
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    ports:
+      - "8001:8001"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    command: python agents/intake.py
+
+  scorer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      AGENTFIELD_URL: http://control-plane:8080
+      AGENT_NODE_ID: scorer
+      PORT: "8002"
+      AGENT_CALLBACK_URL: http://scorer:8002
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    ports:
+      - "8002:8002"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    command: python agents/scorer.py
+
+  router:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      AGENTFIELD_URL: http://control-plane:8080
+      AGENT_NODE_ID: router
+      PORT: "8003"
+      AGENT_CALLBACK_URL: http://router:8003
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    ports:
+      - "8003:8003"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    command: python agents/router.py
+
+volumes:
+  pgdata:
+  agentfield-data:

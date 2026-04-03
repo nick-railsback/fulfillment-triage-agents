@@ -1,0 +1,9 @@
+{
+  "message_id": "msg-004",
+  "source_channel": "email",
+  "sender_id": "cust-33210",
+  "sender_type": "customer",
+  "subject": "Charged twice",
+  "body": "I was charged twice for order ORD-45621 ($275). Please refund the duplicate charge. Thanks.",
+  "metadata": {"order_value_usd": 275}
+}

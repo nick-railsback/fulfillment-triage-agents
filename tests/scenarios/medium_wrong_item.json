@@ -1,0 +1,9 @@
+{
+  "message_id": "msg-002",
+  "source_channel": "email",
+  "sender_id": "cust-11209",
+  "sender_type": "customer",
+  "subject": "Wrong product received",
+  "body": "I ordered the Blue Widget Pro (SKU WDG-PRO-BL) but received a Red Widget Basic instead. Order ORD-91034. This is the second time this has happened. I need the correct item shipped ASAP.",
+  "metadata": {"order_value_usd": 149.99}
+}
